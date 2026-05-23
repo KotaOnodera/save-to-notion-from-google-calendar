@@ -5,6 +5,7 @@ function runTests() {
   test_buildSignature_changesOnTitle();
   test_getEventColorName();
   test_buildNotionProperties_allDayDate();
+  test_addRichTextProperty_splitsLongValue();
   test_buildNotionPageSignature_matchesGCalSignature();
   test_buildNotionPageSignature_normalizesUtcDate();
   test_buildSyncSummaryMessage_containsAllSections();
@@ -60,6 +61,26 @@ function test_buildNotionProperties_allDayDate() {
 
   assertEqual_(dateProperty.start, formatDateOnly_(start), 'all-day start should be date-only');
   assertEqual_(dateProperty.end, formatDateOnly_(end), 'all-day end should be date-only');
+}
+
+// Notionのリッチテキスト制限に合わせて長い値を分割することを確認。
+function test_addRichTextProperty_splitsLongValue() {
+  const props = {};
+  const longValue = repeatString_('a', 2000) + repeatString_('b', 479);
+
+  addRichTextProperty_(props, PROPERTY_NAMES.description, longValue);
+
+  const richText = props[PROPERTY_NAMES.description].rich_text;
+  assertEqual_(richText.length, 2, 'long rich text should be split into chunks');
+  assertEqual_(richText[0].text.content.length, 2000, 'first chunk should use Notion limit');
+  assertEqual_(richText[1].text.content.length, 479, 'remaining chunk should keep overflow');
+  assertEqual_(
+    richText.map(function (item) {
+      return item.text.content;
+    }).join(''),
+    longValue,
+    'chunks should preserve original text'
+  );
 }
 
 // GCalとNotionの署名が同じデータで一致することを確認。
@@ -239,6 +260,10 @@ function assertTrue_(condition, message) {
   if (!condition) {
     throw new Error('Assertion failed: ' + message);
   }
+}
+
+function repeatString_(value, count) {
+  return new Array(count + 1).join(value);
 }
 
 // 同期サマリーメッセージに各セクションが含まれることを確認。
