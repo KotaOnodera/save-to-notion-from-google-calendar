@@ -20,6 +20,7 @@ const PROPERTY_NAMES = {
 
 const NOTION_API_VERSION = '2022-06-28';
 const NOTION_BASE_URL = 'https://api.notion.com/v1';
+const NOTION_RICH_TEXT_CONTENT_LIMIT = 2000;
 
 // メイン処理：GoogleカレンダーとNotionを双方向同期する。
 // 競合時はGoogleカレンダーを優先。
@@ -328,9 +329,32 @@ function addRichTextProperty_(props, name, value) {
     props[name] = { rich_text: [] };
     return;
   }
+  const chunks = splitTextByLength_(String(value), NOTION_RICH_TEXT_CONTENT_LIMIT);
   props[name] = {
-    rich_text: [{ text: { content: value } }],
+    rich_text: chunks.map(function (chunk) {
+      return { text: { content: chunk } };
+    }),
   };
+}
+
+// Notionのrich_text.text.contentは1要素あたり2000文字まで。
+function splitTextByLength_(value, maxLength) {
+  const chunks = [];
+  let chunk = '';
+
+  for (const character of value) {
+    if (chunk.length + character.length > maxLength) {
+      chunks.push(chunk);
+      chunk = '';
+    }
+    chunk += character;
+  }
+
+  if (chunk) {
+    chunks.push(chunk);
+  }
+
+  return chunks;
 }
 
 // Notionプロパティを組み立てるヘルパー。
